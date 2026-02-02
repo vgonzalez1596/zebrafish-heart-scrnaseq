@@ -10,6 +10,7 @@ To reproduce the analysis:
 1. Download the processed barcodes.tsv.gz, features.tsv.gz, and matrix.mtx.gz files for each dataset from GEO.
 
 2. Extract and organize files as:
+
   data/raw/16ss_files/
   barcodes.tsv.gz
   features.tsv.gz

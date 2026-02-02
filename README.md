@@ -3,8 +3,7 @@ Code for Featured Publication: Single-cell transcriptomics reveals Nodal-respons
 
 ## Data availability
 This repository does not include raw data due to file size limits.
-Raw sequencing data and processed count matrices are available from:
-**NCBI GEO accession: GSE311898**
+Raw sequencing data and processed count matrices are available from: **NCBI GEO accession GSE311898**. 
 
 To reproduce the analysis:
 

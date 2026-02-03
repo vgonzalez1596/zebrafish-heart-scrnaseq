@@ -201,6 +201,11 @@ heart18s_final_cluster2only <- SetIdent(
   value = "Rnegative"
 )
 
+saveRDS(
+  heart18s_final_cluster2only,
+  file = file.path(results_dir, "heart18s_cluster2_LR.rds")
+)
+
 # LR differential expression
 heart18s_LR_DEanalysis.markers <- FindMarkers(
   heart18s_final_cluster2only,

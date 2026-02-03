@@ -100,7 +100,7 @@ heart16s_final.markers <- FindAllMarkers(heart16s_final, only.pos = TRUE)
 write.csv(
   heart16s_final.markers,
   file = file.path(results_dir, "cluster_markers_heart16ss.csv"),
-  row.names = FALSE
+  row.names = TRUE
 )
 
 top10 <- heart16s_final.markers %>%
@@ -112,7 +112,7 @@ p_heatmap <- DoHeatmap(heart16s_final, features = top10$gene) +
   theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
 
 ggsave(
-  filename = file.path(figures_dir, "heatmap_top10_markers.png"),
+  filename = file.path(figures_dir, "16ss_heatmap_top10_markers_per_cluster.png"),
   plot = p_heatmap,
   width = 10, height = 7, dpi = 300
 )
@@ -134,27 +134,28 @@ new_cluster_names_short <- c(
 )
 heart16s_final_reordered <- RenameIdents(heart16s_final_reordered, new_cluster_names_short)
 
-make_vln <- function(feature) {
-  VlnPlot(
+marker_genes <- c("mef2ca", "myl7", "nkx2.5", "ttn.1")
+
+for (g in marker_genes) {
+  p_vln <- VlnPlot(
     heart16s_final_reordered,
-    features = feature,
-    cols = c("#0a9f0a", rep("darkgrey", 7))
+    features = g,
+    cols = c(
+      "#0a9f0a", "darkgrey", "darkgrey", "darkgrey", "darkgrey",
+      "darkgrey", "darkgrey", "darkgrey"
+    )
   ) +
     NoLegend() +
     theme(
-      axis.text.x = element_text(angle = 0, hjust = 0.5, size = 10),
-      plot.title = element_text(face = "bold.italic")
+      axis.text.x = element_text(angle = 0, hjust = 0.5, size = 8),
+      plot.title  = element_text(face = "bold.italic")
     ) +
     xlab("Cluster")
-}
 
-vln_features <- c("mef2ca", "myl7", "nkx2.5", "ttn.1")
-for (g in vln_features) {
-  p <- make_vln(g)
   ggsave(
-    filename = file.path(figures_dir, paste0("vln_", g, ".png")),
-    plot = p,
-    width = 6, height = 4, dpi = 300
+    filename = file.path(fig_dir, paste0("16ss_vln_", g, ".png")),
+    plot = p_vln,
+    width = 8, height = 4, dpi = 300
   )
 }
 

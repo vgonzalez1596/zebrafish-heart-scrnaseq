@@ -24,11 +24,16 @@ This repository contains scripts used to:
 
 ## Example Outputs
 
-![UMAP for 20 somite stage (ss) scRNA-seq dataset](https://github.com/vgonzalez1596/zebrafish-heart-scrnaseq/blob/main/figures/20ss_umap_all_clusters.png)
+[UMAP for 20 somite stage (ss) scRNA-seq dataset](https://github.com/vgonzalez1596/zebrafish-heart-scrnaseq/blob/main/figures/20ss_umap_all_clusters.png)
+
 ![Heatmap for 20 ss scRNA-seq dataset](https://github.com/vgonzalez1596/zebrafish-heart-scrnaseq/blob/main/figures/20ss_heatmap_top10_markers_per_cluster.png)
+
 ![UMAP for integrated 16, 18, and 20 ss datasets](https://github.com/vgonzalez1596/zebrafish-heart-scrnaseq/blob/main/figures/integration_umap_by_timepoint.png)
+
 ![Nodal signaling pathway activity across timepoints](https://github.com/vgonzalez1596/zebrafish-heart-scrnaseq/blob/main/figures/integration_AUCell_Nodal_by_timepoint.png)
+
 ![Pseudotime](https://github.com/vgonzalez1596/zebrafish-heart-scrnaseq/blob/main/figures/slingshot_pseudotime_colored.png)
+
 ![Gene expression according to pseudotime](https://github.com/vgonzalez1596/zebrafish-heart-scrnaseq/blob/main/figures/slingshot_pseudotime_featureplots_pca.png)
 
 ---

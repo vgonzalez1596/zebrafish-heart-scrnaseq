@@ -1,44 +1,21 @@
 # 03_seurat_20ss.R
-# Purpose: standard Seurat workflow for 20 somite stage (20 ss) + LR assignment + DE + AUCell signaling
-#
-# Expects: 00_setup.R has been run (or sourced) and created:
-#   - heart20s.data  (Read10X matrix)
-#
-# Outputs (created by this script):
-#   results/20ss/            (tables + R objects)
-#   figures/20ss/            (plots)
+# Purpose:
+#   - Standard Seurat workflow for 20 somite stage (20 ss)
+#   - Cluster annotation + marker discovery
+#   - Define Left/Right cardiomyocytes based on Nodal target expression
+#   - AUCell scoring for pathway activity across clusters
 
-# -------------------------------#
-# 0) Setup
-# -------------------------------#
-
-source(here("scripts", "00_setup.R"))  # adjust if your repo uses a different path
+# Setup
+source(here("scripts", "00_setup.R"))
 set.seed(123)
 
-# Output folders (match 01)
+# Output folders
 results_dir <- here("results", "20ss")
 figures_dir <- here("figures", "20ss")
 dir.create(results_dir, recursive = TRUE, showWarnings = FALSE)
 dir.create(figures_dir, recursive = TRUE, showWarnings = FALSE)
 
-message("Running 20 ss Seurat workflow...")
-
-# Small helper for saving ggplots consistently
-save_plot <- function(p, filename, width = 7, height = 5) {
-  ggsave(
-    filename = file.path(figures_dir, filename),
-    plot = p,
-    width = width,
-    height = height,
-    units = "in",
-    dpi = 300
-  )
-}
-
-# -------------------------------#
-# 1) Create Seurat object + QC
-# -------------------------------#
-
+# Create Seurat object + QC
 heart20s <- CreateSeuratObject(
   counts = heart20s.data,
   project = "20somdata",
@@ -48,20 +25,18 @@ heart20s <- CreateSeuratObject(
 
 heart20s[["percent.mt"]] <- PercentageFeatureSet(heart20s, pattern = "^mt-")
 
-# (Optional) QC summaries (kept for reproducibility/logging)
+# QC summary
 qc_summary <- list(
   nFeature_RNA_median = median(heart20s@meta.data$nFeature_RNA),
-  nFeature_RNA_mad    = mad(heart20s@meta.data$nFeature_RNA,
-                            center = median(heart20s@meta.data$nFeature_RNA),
+  nFeature_RNA_mad    = mad(heart20s@meta.data$nFeature_RNA, center = median(heart20s@meta.data$nFeature_RNA),
                             low = FALSE, high = FALSE),
   percent_mt_median   = median(heart20s@meta.data$percent.mt),
-  percent_mt_mad      = mad(heart20s@meta.data$percent.mt,
-                            center = median(heart20s@meta.data$percent.mt),
+  percent_mt_mad      = mad(heart20s@meta.data$percent.mt, center = median(heart20s@meta.data$percent.mt),
                             low = FALSE, high = FALSE)
 )
-saveRDS(qc_summary, file.path(results_dir, "qc_summary_20ss.rds"))
+print(qc_summary)
 
-# Filter (thresholds from your original notebook)
+# QC thresholds
 heart20s_filtered <- subset(
   heart20s,
   subset = nFeature_RNA > 200 &
@@ -70,100 +45,79 @@ heart20s_filtered <- subset(
     nCount_RNA < 100000
 )
 
-saveRDS(heart20s_filtered, file.path(results_dir, "heart20s_filtered.rds"))
+# Save filtered object
+saveRDS(heart20s_filtered, file = file.path(results_dir, "heart20s_filtered.rds"))
 
-# -------------------------------#
-# 2) Normalize + HVGs + Scale + PCA + Neighbors/Clusters + UMAP
-# -------------------------------#
+# Normalize + HVGs + Scale + PCA/UMAP/Clustering
+heart20s_filtered <- NormalizeData(heart20s_filtered, normalization.method = "LogNormalize", scale.factor = 10000)
+heart20s_filtered <- FindVariableFeatures(heart20s_filtered, selection.method = "vst", nfeatures = 2000)
 
-heart20s_norm <- NormalizeData(
-  heart20s_filtered,
-  normalization.method = "LogNormalize",
-  scale.factor = 10000
-)
+all.genes <- rownames(heart20s_filtered)
+heart20s_filtered <- ScaleData(heart20s_filtered, features = all.genes)
 
-heart20s_norm <- FindVariableFeatures(
-  heart20s_norm,
-  selection.method = "vst",
-  nfeatures = 2000
-)
+heart20s_filtered <- RunPCA(heart20s_filtered, features = VariableFeatures(object = heart20s_filtered))
 
-top10_hvgs <- head(VariableFeatures(heart20s_norm), 10)
-write.csv(
-  data.frame(top10_hvgs = top10_hvgs),
-  file.path(results_dir, "top10_variable_features_20ss.csv"),
-  row.names = FALSE
-)
+# Dims/resolution
+heart20s_filtered <- FindNeighbors(heart20s_filtered, dims = 1:13)
+heart20s_filtered <- FindClusters(heart20s_filtered, resolution = 0.2)
+heart20s_final <- RunUMAP(heart20s_filtered, dims = 1:13)
 
-all.genes <- rownames(heart20s_norm)
-heart20s_norm <- ScaleData(heart20s_norm, features = all.genes)
+saveRDS(heart20s_final, file = file.path(results_dir, "heart20s_final.rds"))
 
-heart20s_norm <- RunPCA(heart20s_norm, features = VariableFeatures(object = heart20s_norm))
-
-# dims + resolution from your original notebook
-heart20s_norm <- FindNeighbors(heart20s_norm, dims = 1:13)
-heart20s_norm <- FindClusters(heart20s_norm, resolution = 0.2)
-
-heart20s_final <- RunUMAP(heart20s_norm, dims = 1:13)
-
-saveRDS(heart20s_final, file.path(results_dir, "heart20s_final.rds"))
-
-# -------------------------------#
-# 3) UMAPs + cluster naming
-# -------------------------------#
-
-# UMAP with all clusters, named
+# Cluster naming + UMAP plots
 heart20s_final_clustersnamed <- heart20s_final
+
 new_cluster_names <- c(
-  "Mixed Cell Types",
-  "Mesoderm",
-  "Macrophage",
-  "Cardiomyocyte",
-  "Central Nervous System",
-  "Neural Crest",
-  "Somite",
-  "Ectoderm"
+  "Mixed Cell Types", "Mesoderm", "Macrophage", "Cardiomyocyte",
+  "Central Nervous System", "Neural Crest", "Somite", "Ectoderm"
 )
 names(new_cluster_names) <- levels(heart20s_final_clustersnamed)
 heart20s_final_clustersnamed <- RenameIdents(heart20s_final_clustersnamed, new_cluster_names)
 
 p_umap_all <- DimPlot(heart20s_final_clustersnamed, reduction = "umap", pt.size = 0.5)
-save_plot(p_umap_all, "umap_all_clusters_20ss.png", width = 7.5, height = 6)
 
-# UMAP highlighting cardiac cluster (cluster "3" in your original object) in green
-p_umap_heart <- DimPlot(
+ggsave(
+  filename = file.path(figures_dir, "20ss_umap_all_clusters.png"),
+  plot = p_umap_all,
+  width = 7, height = 5, dpi = 300
+)
+
+# Cardiac cluster highlight
+p_umap_cardiac <- DimPlot(
   heart20s_final,
   reduction = "umap",
   cols = c("darkgrey", "darkgrey", "darkgrey", "#0a9f0a", "darkgrey", "darkgrey", "darkgrey", "darkgrey")
 ) + NoLegend()
-save_plot(p_umap_heart, "umap_heart_highlight_20ss.png", width = 7.5, height = 6)
 
-# -------------------------------#
-# 4) Cluster markers + heatmap
-# -------------------------------#
-
-heart20s_final_markers <- FindAllMarkers(heart20s_final, only.pos = TRUE)
-write.csv(
-  heart20s_final_markers,
-  file.path(results_dir, "cluster_markers_heart20ss.csv"),
-  row.names = FALSE
+ggsave(
+  filename = file.path(figures_dir, "20ss_umap_cardiac_highlight.png"),
+  plot = p_umap_cardiac,
+  width = 7, height = 5, dpi = 300
 )
 
-top10 <- heart20s_final_markers %>%
-  dplyr::group_by(cluster) %>%
-  dplyr::top_n(n = 10, wt = avg_log2FC)
+# Cluster markers + heatmap
+heart20s_final.markers <- FindAllMarkers(heart20s_final, only.pos = TRUE)
+write.csv(
+  heart20s_final.markers,
+  file = file.path(results_dir, "cluster_markers_heart20ss.csv"),
+  row.names = TRUE
+)
 
-p_heat <- DoHeatmap(heart20s_final, features = top10$gene) +
+top10 <- heart20s_final.markers %>%
+  group_by(cluster) %>%
+  top_n(n = 10, wt = avg_log2FC)
+
+p_heatmap <- DoHeatmap(heart20s_final, features = top10$gene) +
   NoLegend() +
-  theme(strip.text = element_text(angle = 0))
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
 
-save_plot(p_heat, "heatmap_top10_markers_20ss.png", width = 10, height = 8)
+ggsave(
+  filename = file.path(figures_dir, "20ss_heatmap_top10_markers_per_cluster.png"),
+  plot = p_heatmap,
+  width = 10, height = 7, dpi = 300
+)
 
-# -------------------------------#
-# 5) Cardiac marker violins + “uncharacterized” gene panels
-# -------------------------------#
-
-# Reorder + rename clusters for violin plots (match your notebook)
+# Violin plots: canonical cardiac markers
 heart20s_final_reordered <- SetIdent(
   heart20s_final,
   value = factor(Idents(heart20s_final), levels = c("3", "0", "1", "2", "4", "5", "6", "7"))
@@ -181,38 +135,48 @@ new_cluster_names_short <- c(
 )
 heart20s_final_reordered <- RenameIdents(heart20s_final_reordered, new_cluster_names_short)
 
-# Canonical cardiac markers
-cardiac_markers <- c("mef2ca", "myl7", "nkx2.5", "ttn.1")
-for (g in cardiac_markers) {
-  p <- VlnPlot(
+marker_genes <- c("mef2ca", "myl7", "nkx2.5", "ttn.1")
+
+for (g in marker_genes) {
+  p_vln <- VlnPlot(
     heart20s_final_reordered,
     features = g,
-    cols = c("#0a9f0a", rep("darkgrey", 8))
+    cols = c(
+      "#0a9f0a", "darkgrey", "darkgrey", "darkgrey", "darkgrey",
+      "darkgrey", "darkgrey", "darkgrey"
+    )
   ) +
     NoLegend() +
     theme(
-      axis.text.x = element_text(angle = 0, hjust = 0.5, size = 10),
-      plot.title = element_text(face = "bold.italic")
+      axis.text.x = element_text(angle = 0, hjust = 0.5, size = 8),
+      plot.title  = element_text(face = "bold.italic")
     ) +
     xlab("Cluster")
 
-  save_plot(p, paste0("vln_", g, "_20ss.png"), width = 7.5, height = 4.5)
+  ggsave(
+    filename = file.path(figures_dir, paste0("20ss_vln_", g, ".png")),
+    plot = p_vln,
+    width = 8, height = 4, dpi = 300
+  )
 }
 
-# Uncharacterized/novel expression panels (as in your notebook)
-unknown_sets <- list(
+# Novel/uncharacterized genes
+gene_sets <- list(
   unknown_function = c("si:ch211-131k2.3", "si:ch211-221f10.2", "si:dkey-184p18.2"),
-  unknown_tx_regs  = c("dcaf6", "mxd1", "nfat5b"),
-  unknown_cytoskel = c("coro6", "fhod3a", "lmod2b")
+  uncharacterized_regulators = c("dcaf6", "mxd1", "nfat5b"),
+  uncharacterized_cytoskeleton_ecm = c("coro6", "fhod3a", "lmod2b")
 )
 
-for (set_name in names(unknown_sets)) {
-  genes <- unknown_sets[[set_name]]
+for (set_name in names(gene_sets)) {
+  genes <- gene_sets[[set_name]]
 
   plots <- VlnPlot(
     heart20s_final_reordered,
     features = genes,
-    cols = c("#0a9f0a", rep("darkgrey", 7)),
+    cols = c(
+      "#0a9f0a", "darkgrey", "darkgrey", "darkgrey", "darkgrey",
+      "darkgrey", "darkgrey", "darkgrey"
+    )
     combine = FALSE
   )
 
@@ -220,33 +184,29 @@ for (set_name in names(unknown_sets)) {
     p + NoLegend() +
       theme(
         axis.text.x = element_text(angle = 0, hjust = 0.5, size = 10),
-        plot.title = element_text(face = "bold.italic")
+        plot.title  = element_text(face = "bold.italic")
       ) +
       xlab("Cluster")
   })
 
   p_panel <- wrap_plots(plots)
-  save_plot(p_panel, paste0("vln_panel_", set_name, "_20ss.png"), width = 10, height = 4)
+
+  ggsave(
+    filename = file.path(figures_dir, paste0("20ss_vln_panel_", set_name, ".png")),
+    plot = p_panel,
+    width = 12, height = 4, dpi = 300
+  )
 }
 
-# -------------------------------#
-# 6) Left/Right assignment + DE in cardiac cluster
-# -------------------------------#
-
-# Cardiac cluster is "3" in your original 20ss notebook
+# Left/Right assignment within cardiomyocytes
 heart20s_final_cluster3only <- subset(heart20s_final, idents = c("3"))
 
-# (Optional) inspect expression distributions
-expr_summaries <- list(
-  pitx2 = summary(FetchData(heart20s_final_cluster3only, vars = "pitx2")[,1]),
-  lft2  = summary(FetchData(heart20s_final_cluster3only, vars = "lft2")[,1]),
-  lft1  = summary(FetchData(heart20s_final_cluster3only, vars = "lft1")[,1]),
-  ndr2  = summary(FetchData(heart20s_final_cluster3only, vars = "ndr2")[,1])
-)
-saveRDS(expr_summaries, file.path(results_dir, "lr_gene_expression_summaries_20ss.rds"))
-
-# Thresholds from your notebook:
+summary(FetchData(object = heart20s_final_cluster3only, vars = "pitx2"))
+summary(FetchData(object = heart20s_final_cluster3only, vars = "lft2"))
+summary(FetchData(object = heart20s_final_cluster3only, vars = "lft1"))
+summary(FetchData(object = heart20s_final_cluster3only, vars = "ndr2"))
 # Mean expression: lft1 = 0.07007, lft2 = 1.760, ndr2 = 0.09333, pitx2 = 0.1417
+
 left_sided_genes_positive <- WhichCells(
   heart20s_final_cluster3only,
   expression = pitx2 > 0.1417 | lft2 > 1.760 | lft1 > 0.07007 | ndr2 > 0.09333
@@ -267,46 +227,31 @@ heart20s_final_cluster3only <- SetIdent(
   value = "Rnegative"
 )
 
-# Sanity check table
-lr_table <- table(Idents(heart20s_final_cluster3only))
-write.csv(
-  as.data.frame(lr_table),
-  file.path(results_dir, "lr_identity_counts_20ss.csv"),
-  row.names = FALSE
-)
-
-# DE: Left vs Right
-heart20s_LR_DEanalysis_markers <- FindMarkers(
+# LR differential expression
+heart20s_LR_DEanalysis.markers <- FindMarkers(
   heart20s_final_cluster3only,
   ident.1 = "Lpositive",
   ident.2 = "Rnegative"
 )
 
-heart20s_LR_DEanalysis_markersFILTERED <- subset(
-  heart20s_LR_DEanalysis_markers,
+heart20s_LR_DEanalysis.markersFILTERED <- subset(
+  heart20s_LR_DEanalysis.markers,
   p_val_adj < 0.05 & abs(avg_log2FC) > 0.25
 )
 
 write.csv(
-  heart20s_LR_DEanalysis_markersFILTERED,
-  file.path(results_dir, "LR_DEanalysis_heart20ss_filtered.csv"),
-  row.names = TRUE
+  heart20s_LR_DEanalysis.markersFILTERED,
+  file = file.path(results_dir, "LR_DEanalysis_heart20ss_filtered.csv")
 )
 
-saveRDS(heart20s_final_cluster3only, file.path(results_dir, "heart20s_final_cluster3only_LR.rds"))
-
-# -------------------------------#
-# 7) AUCell signaling across clusters (20 ss)
-# -------------------------------#
-
+# AUCell: pathway activity across clusters
 exprMatrix <- GetAssayData(heart20s_final, slot = "counts")
 
-# Default: Nodal (as in notebook)
-geneSets <- list(Active_Nodal = c("lft2", "pitx2", "ndr2", "lft1"))
-
+geneSets <- list(
+  Active_Nodal = c("lft2", "pitx2", "ndr2", "lft1")
+)
 # To measure BMP signaling instead:
 # geneSets <- list(Active_BMP = c("nkx2.5", "hand2", "tbx20", "tbx2b"))
-#
 # To measure FGF signaling instead:
 # geneSets <- list(Active_FGF = c("pea3", "erm", "gata4", "spry4"))
 
@@ -314,19 +259,22 @@ cells_rankings <- AUCell_buildRankings(exprMatrix, nCores = 1, plotStats = TRUE)
 cells_AUC <- AUCell_calcAUC(geneSets, cells_rankings)
 
 auc_df <- as.data.frame(t(getAUC(cells_AUC)))
-heart20s_final_auc <- AddMetaData(heart20s_final, auc_df)
+heart20s_final <- AddMetaData(heart20s_final, auc_df)
 
-# Reorder + rename for plotting (same mapping as above)
-heart20s_final_auc_reordered <- SetIdent(
-  heart20s_final_auc,
-  value = factor(Idents(heart20s_final_auc), levels = c("3", "0", "1", "2", "4", "5", "6", "7"))
+# Reorder + rename clusters for plotting
+heart20s_final_reordered <- SetIdent(
+  heart20s_final,
+  value = factor(Idents(heart20s_final), levels = c("3", "0", "1", "2", "4", "5", "6", "7"))
 )
-heart20s_final_auc_reordered <- RenameIdents(heart20s_final_auc_reordered, new_cluster_names_short)
+heart20s_final_reordered <- RenameIdents(heart20s_final_reordered, new_cluster_names_short)
 
 p_auc <- VlnPlot(
-  heart20s_final_auc_reordered,
+  heart20s_final_reordered,
   features = names(geneSets),
-  cols = c("#0a9f0a", rep("darkgrey", 7))
+  cols = c(
+      "#0a9f0a", "darkgrey", "darkgrey", "darkgrey", "darkgrey",
+      "darkgrey", "darkgrey", "darkgrey"
+    )
 ) +
   theme(
     legend.position = "none",
@@ -337,9 +285,13 @@ p_auc <- VlnPlot(
   labs(y = "Nodal signaling at 20 ss") +
   xlab("Cluster")
 
-save_plot(p_auc, "aucell_nodal_by_cluster_20ss.png", width = 7.5, height = 5)
+ggsave(
+  filename = file.path(figures_dir, "20ss_AUCell_Nodal_by_cluster.png"),
+  plot = p_auc,
+  width = 7, height = 5, dpi = 300
+)
 
-saveRDS(heart20s_final_auc, file.path(results_dir, "heart20s_final_with_AUCell_metadata.rds"))
+# Save updated object w/ AUCell metadata
+saveRDS(heart20s_final, file = file.path(results_dir, "heart20s_final_with_AUCell.rds"))
 
-message("Done! Outputs written to: ", results_dir, " and ", figures_dir)
-
+message("03_seurat_20ss.R complete. Outputs saved to results/20ss and figures/20ss.")

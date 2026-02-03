@@ -11,43 +11,7 @@ figures_dir <- here("figures", "auc_left_vs_right")
 dir.create(results_dir, recursive = TRUE, showWarnings = FALSE)
 dir.create(figures_dir, recursive = TRUE, showWarnings = FALSE)
 
-
-
-
-# 05_auc_left_vs_right.R
-# Purpose:
-#   - AUCell scoring of Nodal gene sets in Left vs Right cardiomyocytes
-#   - Statistical comparison (Wilcoxon rank-sum) of AUCell AUC distributions
-#
-# Expects:
-#   - 01_seurat_16ss.R has been run and produced an LR-labeled cardiomyocyte object
-#     (recommended: save as results/16ss/heart16s_cluster3_LR.rds)
-#
-# Outputs:
-#   - results/auc_left_vs_right/tables/
-#   - figures/auc_left_vs_right/
-
-# -------------------------------#
-# Setup
-# -------------------------------#
-source(here("scripts", "00_setup.R"))
-set.seed(123)
-
-# Output folders
-results_dir <- here("results", "auc_left_vs_right")
-figures_dir <- here("figures", "auc_left_vs_right")
-tables_dir  <- file.path(results_dir, "tables")
-
-dir.create(results_dir, recursive = TRUE, showWarnings = FALSE)
-dir.create(figures_dir, recursive = TRUE, showWarnings = FALSE)
-dir.create(tables_dir, recursive = TRUE, showWarnings = FALSE)
-
-message("Running AUCell Left vs Right comparisons...")
-
-# -------------------------------#
-# Load LR-labeled cardiomyocytes
-# -------------------------------#
-# Update this path if you saved it somewhere else in 01_seurat_16ss.R
+# Load LR-labeled cardiomyocytes at 16 ss
 lr_obj_path <- here("results", "16ss", "heart16s_cluster3_LR.rds")
 
 if (!file.exists(lr_obj_path)) {
@@ -70,9 +34,13 @@ Idents(heart16s_final_cluster3only) <- factor(
 )
 print(table(Idents(heart16s_final_cluster3only)))
 
-# -------------------------------#
-# Helper function
-# -------------------------------#
+
+
+
+
+
+
+
 run_auc_lr <- function(
   seu,
   gene_set_name,
@@ -90,7 +58,7 @@ run_auc_lr <- function(
   cells_rankings <- AUCell_buildRankings(exprMatrix, nCores = 1, plotStats = TRUE)
   cells_AUC <- AUCell_calcAUC(geneSets, cells_rankings)
 
-  # Histogram (save)
+  # Histogram
   p_hist <- AUCell_plotHist(cells_AUC)
 
   ggsave(
@@ -103,7 +71,7 @@ run_auc_lr <- function(
   auc_df <- as.data.frame(t(getAUC(cells_AUC)))
   seu <- AddMetaData(seu, auc_df)
 
-  # Violin plot (Left vs Right only)
+  # Violin plot (left vs right)
   p_vln <- VlnPlot(
     seu,
     features = gene_set_name,
@@ -130,7 +98,7 @@ run_auc_lr <- function(
     width = 6, height = 4, dpi = 300
   )
 
-  # Stats: Wilcoxon test (Right vs Left)
+  # Stats: Wilcoxon test
   stats_df <- auc_df
   stats_df$cluster <- Idents(seu)
 
@@ -145,6 +113,8 @@ run_auc_lr <- function(
     stats_df = stats_df
   )
 }
+
+
 
 # -------------------------------#
 # 1) AUCell: Left-exclusive Nodal targets
@@ -183,7 +153,7 @@ pvals_out <- data.frame(
 
 write.csv(
   pvals_out,
-  file = file.path(tables_dir, "AUCell_LR_Wilcoxon_pvalues.csv"),
+  file = file.path(results_dir, "AUCell_LR_Wilcoxon_pvalues.csv"),
   row.names = FALSE
 )
 

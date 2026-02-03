@@ -153,7 +153,7 @@ for (g in marker_genes) {
     xlab("Cluster")
 
   ggsave(
-    filename = file.path(fig_dir, paste0("16ss_vln_", g, ".png")),
+    filename = file.path(figures_dir, paste0("16ss_vln_", g, ".png")),
     plot = p_vln,
     width = 8, height = 4, dpi = 300
   )

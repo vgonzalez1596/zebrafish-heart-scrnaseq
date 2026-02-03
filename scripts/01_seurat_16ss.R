@@ -162,15 +162,15 @@ for (g in marker_genes) {
 # Left/Right assignment within cardiomyocytes
 heart16s_final_cluster3only <- subset(heart16s_final, idents = c("3"))
 
-# Left genes mean expression
-pitx2_mean <- 0.1444
-lft2_mean  <- 0.2881
-lft1_mean  <- 0.07302
-ndr2_mean  <- 0.06474
+summary(FetchData(object = heart16s_final_cluster3only, vars = "pitx2"))
+summary(FetchData(object = heart16s_final_cluster3only, vars = "lft2"))
+summary(FetchData(object = heart16s_final_cluster3only, vars = "lft1"))
+summary(FetchData(object = heart16s_final_cluster3only, vars = "ndr2"))
+# Mean expression: lft1 = 0.07302, lft2 = 0.2881, ndr2 = 0.06474, pitx2 = 0.1444
 
 left_sided_genes_positive <- WhichCells(
   heart16s_final_cluster3only,
-  expression = pitx2 > pitx2_mean | lft2 > lft2_mean | lft1 > lft1_mean | ndr2 > ndr2_mean
+  expression = pitx2 > 0.1444 | lft2 > 0.2881 | lft1 > 0.07302 | ndr2 > 0.06474
 )
 heart16s_final_cluster3only <- SetIdent(
   heart16s_final_cluster3only,
@@ -186,12 +186,6 @@ heart16s_final_cluster3only <- SetIdent(
   heart16s_final_cluster3only,
   cells = left_sided_genes_negative,
   value = "Rnegative"
-)
-
-# Save LR object
-saveRDS(
-  heart16s_final_cluster3only,
-  file = file.path(results_dir, "heart16s_cardiomyocytes_LR_labeled.rds")
 )
 
 # LR differential expression
@@ -228,7 +222,7 @@ cells_AUC <- AUCell_calcAUC(geneSets, cells_rankings)
 auc_df <- as.data.frame(t(getAUC(cells_AUC)))
 heart16s_final <- AddMetaData(heart16s_final, auc_df)
 
-# reorder again for plotting
+# Reorder + rename clusters for plotting
 heart16s_final_reordered <- SetIdent(
   heart16s_final,
   value = factor(Idents(heart16s_final), levels = c("3", "0", "1", "2", "4", "5", "6"))
@@ -238,7 +232,10 @@ heart16s_final_reordered <- RenameIdents(heart16s_final_reordered, new_cluster_n
 p_auc <- VlnPlot(
   heart16s_final_reordered,
   features = names(geneSets),
-  cols = c("#0a9f0a", rep("darkgrey", 7))
+  cols = c(
+    "#0a9f0a", "darkgrey", "darkgrey", "darkgrey", "darkgrey",
+    "darkgrey", "darkgrey", "darkgrey"
+  )
 ) +
   theme(
     legend.position = "none",
@@ -250,7 +247,7 @@ p_auc <- VlnPlot(
   xlab("Cluster")
 
 ggsave(
-  filename = file.path(figures_dir, "AUCell_nodal_by_cluster.png"),
+  filename = file.path(figures_dir, "16ss_AUCell_Nodal_by_cluster.png"),
   plot = p_auc,
   width = 7, height = 5, dpi = 300
 )

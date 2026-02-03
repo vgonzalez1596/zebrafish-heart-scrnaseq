@@ -175,30 +175,29 @@ for (g in marker_genes) {
 # Left/Right assignment within cardiomyocytes
 heart18s_final_cluster2only <- subset(heart18s_final, idents = c("2"))
 
-# Optional expression summaries (parity with original)
 summary(FetchData(object = heart18s_final_cluster2only, vars = "pitx2"))
 summary(FetchData(object = heart18s_final_cluster2only, vars = "lft2"))
 summary(FetchData(object = heart18s_final_cluster2only, vars = "lft1"))
 summary(FetchData(object = heart18s_final_cluster2only, vars = "ndr2"))
 # Mean expression: lft1 = 0.3455, lft2 = 0.9976, ndr2 = 0.2029, pitx2 = 0.3872
 
-left_pos <- WhichCells(
+left_sided_genes_positive <- WhichCells(
   heart18s_final_cluster2only,
   expression = pitx2 > 0.3872 | lft2 > 0.9976 | lft1 > 0.3455 | ndr2 > 0.2029
 )
 heart18s_final_cluster2only <- SetIdent(
   heart18s_final_cluster2only,
-  cells = left_pos,
+  cells = left_sided_genes_positive,
   value = "Lpositive"
 )
 
-right_neg <- WhichCells(
+left_sided_genes_negative <- WhichCells(
   heart18s_final_cluster2only,
   expression = lft2 == 0 & pitx2 == 0 & lft1 == 0 & ndr2 == 0
 )
 heart18s_final_cluster2only <- SetIdent(
   heart18s_final_cluster2only,
-  cells = right_neg,
+  cells = left_sided_genes_negative,
   value = "Rnegative"
 )
 
@@ -216,22 +215,11 @@ heart18s_LR_DEanalysis.markersFILTERED <- subset(
 
 write.csv(
   heart18s_LR_DEanalysis.markersFILTERED,
-  file = file.path(tbl_dir, "LR_DEanalysis_heart18ss.csv"),
+  file = file.path(results_dir, "LR_DEanalysis_heart18ss_filtered.csv"),
   row.names = TRUE
 )
 
-saveRDS(
-  heart18s_final_cluster2only,
-  file.path(rds_dir, "heart18s_cardiac_cluster_LR_labeled.rds")
-)
-
-message("LR label counts:")
-print(table(Idents(heart18s_final_cluster2only)))
-
-# -------------------------------#
-# 7) AUCell signaling across all clusters (18 ss)
-# -------------------------------#
-
+# AUCell: pathway activity across clusters
 exprMatrix <- GetAssayData(heart18s_final, slot = "counts")
 
 geneSets <- list(
@@ -248,12 +236,12 @@ cells_AUC <- AUCell_calcAUC(geneSets, cells_rankings)
 auc_df <- as.data.frame(t(getAUC(cells_AUC)))
 heart18s_final <- AddMetaData(heart18s_final, auc_df)
 
-# Reorder + rename clusters (same as earlier) for plotting
-heart18s_auc_reordered <- SetIdent(
+# Reorder + rename clusters for plotting
+heart18s_final_reordered <- SetIdent(
   heart18s_final,
   value = factor(Idents(heart18s_final), levels = c("2", "0", "1", "3", "4", "5", "6", "7", "8", "9"))
 )
-heart18s_auc_reordered <- RenameIdents(heart18s_auc_reordered, new_cluster_names_short)
+heart18s_final_reordered <- RenameIdents(heart18s_final_reordered, new_cluster_names_short)
 
 p_auc <- VlnPlot(
   heart18s_auc_reordered,
@@ -273,12 +261,11 @@ p_auc <- VlnPlot(
   xlab("Cluster")
 
 ggsave(
-  filename = file.path(fig_dir, "18ss_aucell_nodal_by_cluster.png"),
+  filename = file.path(figures_dir, "18ss_AUCell_Nodal_by_cluster.png"),
   plot = p_auc,
-  width = 8, height = 4.5, dpi = 300
+  width = 7, height = 5, dpi = 300
 )
 
-saveRDS(heart18s_final, file.path(rds_dir, "heart18s_final_with_AUCell.rds"))
+saveRDS(heart18s_final, file = file.path(results_dir, "heart18s_final_with_AUCell.rds"))
 
-message("02_seurat_18ss.R complete. Outputs saved to: ", out_dir)
-
+message("02_seurat_18ss.R complete. Outputs saved to results/18ss and figures/18ss.")

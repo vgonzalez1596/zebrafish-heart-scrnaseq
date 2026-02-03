@@ -90,7 +90,7 @@ p_umap_cardiac <- DimPlot(
 ) + NoLegend()
 
 ggsave(
-  filename = file.path(figures_dir, "umap_cardiac_highlight.png"),
+  filename = file.path(figures_dir, "16ss_umap_cardiac_highlight.png"),
   plot = p_umap_cardiac,
   width = 7, height = 5, dpi = 300
 )

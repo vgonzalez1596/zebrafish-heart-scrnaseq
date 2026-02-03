@@ -214,11 +214,26 @@ sce_slingshot <- slingshot(
 )
 
 # Pseudotime plot with original dataset identities
-sce_slingshot_plot <- plotGeneCount(sce_slingshot, clusters = colData(sce)$orig.ident) +
-  scale_color_manual(values = c("#f8766d", "#00ba38", "#619cff"), labels = c("16 ss", "18 ss", "20 ss")) +
+pca_mat <- reducedDim(sce_slingshot, "PCA")
+df_pca <- data.frame(
+  PC1 = pca_mat[, 1],
+  PC2 = pca_mat[, 2],
+  orig.ident = colData(sce_slingshot)$orig.ident
+)
+p_pca_timepoint <- ggplot(df_pca, aes(x = PC1, y = PC2, color = orig.ident)) +
+  geom_point(size = 0.6, alpha = 0.8) +
+  scale_color_manual(
+    values = c("16somdata" = "#f8766d",
+               "18somdata" = "#00ba38",
+               "20somdata" = "#619cff"),
+    labels = c("16somdata" = "16 ss",
+               "18somdata" = "18 ss",
+               "20somdata" = "20 ss")
+  ) +
   labs(x = "PC_1", y = "PC_2", color = "Timepoint") +
+  theme_classic() +
   theme(
-    legend.position.inside = c(0.85, 0.85),
+    legend.position = c(0.98, 0.98),
     legend.justification = c(1, 1),
     legend.background = element_rect(fill = "white", color = "black"),
     legend.key = element_rect(fill = "white")
@@ -231,12 +246,24 @@ ggsave(
 
 # Pseudotime plot with pseudotime coloring
 pseudotime_values <- slingPseudotime(sce_slingshot, na = FALSE)
-pseudotime_col <- viridis(100)[as.numeric(cut(pseudotime_values[, 1], 100))]
-png(file.path(figures_dir, "slingshot_pseudotime_colored_baseR.png"), width = 1800, height = 1400, res = 250)
+pt <- pseudotime_values[, 1]
+pt_col <- viridis(100)[as.numeric(cut(pt, breaks = 100))]
+png(
+  filename = file.path(out_dir, "slingshot_pseudotime_colored_baseR.png"),
+  width = 1800, height = 1400, res = 250
+)
 par(mar = c(5, 4, 4, 6), bty = "n")
-plot(reducedDim(sce, "PCA"), col = pseudotime_col, pch = 16, cex = 0.5, main = NULL)
+plot(
+  pca_mat,
+  col = pt_col,
+  pch = 16,
+  cex = 0.5,
+  xlab = "PC_1",
+  ylab = "PC_2",
+  main = NULL
+)
 lines(SlingshotDataSet(sce_slingshot), lwd = 2, col = "black")
-breaks <- seq(min(pseudotime_values[, 1]), max(pseudotime_values[, 1]), length.out = 6)
+breaks <- seq(min(pt, na.rm = TRUE), max(pt, na.rm = TRUE), length.out = 6)
 legend(
   "topright",
   legend = round(breaks, 2),

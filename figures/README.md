@@ -1,1 +1,1 @@
-Generated figures for publication.
+Generated figures from scripts. 

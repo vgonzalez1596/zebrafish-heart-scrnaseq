@@ -77,7 +77,7 @@ heart16s_final_clustersnamed <- RenameIdents(heart16s_final_clustersnamed, new_c
 p_umap_all <- DimPlot(heart16s_final_clustersnamed, reduction = "umap", pt.size = 0.5)
 
 ggsave(
-  filename = file.path(figures_dir, "umap_all_clusters.png"),
+  filename = file.path(figures_dir, "16ss_umap_all_clusters.png"),
   plot = p_umap_all,
   width = 7, height = 5, dpi = 300
 )

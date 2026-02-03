@@ -1,10 +1,13 @@
 # Featured Publication: Single-cell transcriptomics reveals Nodal-responsive cytoskeletal programs driving asymmetric heart morphogenesis.
 
 This repository contains the R code used to analyse the single-cell RNA-seq datasets from the above publication. 
+
 *Gonzalez et al. Nature Communications (under revision)*
 
 ## Project Goal
 To characterize cardiomyocyte transcriptional programs and signaling-dependent gene expression changes across developmental timepoints in the zebrafish heart using single-cell RNA sequencing.
+
+---
 
 ## Analysis Workflow
 This repository contains scripts used to:
@@ -17,20 +20,27 @@ This repository contains scripts used to:
 • Perform pseudotime and trajectory inference  
 • Generate publication-quality visualizations  
 
+---
+
 ## Example Output
 
-![UMAP](figures/umap.png)
+![UMAP](figures/20ss_umap_all_clusters)
 
 ---
 
 ## Tools & Packages
-Seurat, Slingshot, AUCell, tidyverse, ggplot2, and related R-based single-cell analysis tools.
+Seurat, Slingshot, AUCell, tidyverse, ggplot2, and additional related R-based single-cell analysis tools.
 
 ---
 
 ## Repository Structure
+scripts/ analysis scripts and notebooks
+results/ processed outputs and intermediate objects
+figures/ generated figures and visualizations
+data/ data organization notes
+environment/ package and session information for reproducibility
 
-
+---
 
 ## Data availability
 This repository does not include raw data due to file size limits.

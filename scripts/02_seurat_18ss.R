@@ -15,11 +15,7 @@ figures_dir <- here("figures", "18ss")
 dir.create(results_dir, recursive = TRUE, showWarnings = FALSE)
 dir.create(figures_dir, recursive = TRUE, showWarnings = FALSE)
 
-
-# -------------------------------#
-# 1) Create Seurat object + QC
-# -------------------------------#
-
+# Create Seurat object + QC
 heart18s <- CreateSeuratObject(
   counts = heart18s.data,
   project = "18somdata",
@@ -29,13 +25,18 @@ heart18s <- CreateSeuratObject(
 
 heart18s[["percent.mt"]] <- PercentageFeatureSet(heart18s, pattern = "^mt-")
 
-# Optional QC summaries (kept for parity with your original code)
-median(heart18s@meta.data$nFeature_RNA)
-mad(heart18s@meta.data$nFeature_RNA, center = median(heart18s@meta.data$nFeature_RNA), low = FALSE, high = FALSE)
-median(heart18s@meta.data$percent.mt)
-mad(heart18s@meta.data$percent.mt, center = median(heart18s@meta.data$percent.mt), low = FALSE, high = FALSE)
+# QC summary
+qc_summary <- list(
+  nFeature_RNA_median = median(heart18s@meta.data$nFeature_RNA),
+  nFeature_RNA_mad    = mad(heart18s@meta.data$nFeature_RNA, center = median(heart18s@meta.data$nFeature_RNA),
+                            low = FALSE, high = FALSE),
+  percent_mt_median   = median(heart18s@meta.data$percent.mt),
+  percent_mt_mad      = mad(heart18s@meta.data$percent.mt, center = median(heart18s@meta.data$percent.mt),
+                            low = FALSE, high = FALSE)
+)
+print(qc_summary)
 
-# Filter thresholds (from your original analysis)
+# QC thresholds
 heart18s_filtered <- subset(
   heart18s,
   subset = nFeature_RNA > 200 &
@@ -44,45 +45,28 @@ heart18s_filtered <- subset(
     nCount_RNA < 100000
 )
 
-saveRDS(heart18s_filtered, file.path(rds_dir, "heart18s_filtered.rds"))
+# Save filtered object
+saveRDS(heart18s_filtered, file = file.path(results_dir, "heart18s_filtered.rds"))
 
-# -------------------------------#
-# 2) Normalize + HVGs + Scale + PCA
-# -------------------------------#
+# Normalize + HVGs + Scale + PCA/UMAP/Clustering
+heart18s_filtered <- NormalizeData(heart18s_filtered, normalization.method = "LogNormalize", scale.factor = 10000)
+heart18s_filtered <- FindVariableFeatures(heart18s_filtered, selection.method = "vst", nfeatures = 2000)
 
-heart18s_norm <- NormalizeData(
-  heart18s_filtered,
-  normalization.method = "LogNormalize",
-  scale.factor = 10000
-)
+all.genes <- rownames(heart18s_filtered)
+heart18s_filtered <- ScaleData(heart18s_filtered, features = all.genes)
 
-heart18s_norm <- FindVariableFeatures(
-  heart18s_norm,
-  selection.method = "vst",
-  nfeatures = 2000
-)
+heart18s_filtered <- RunPCA(heart18s_filtered, features = VariableFeatures(object = heart18s_filtered))
 
-top10 <- head(VariableFeatures(heart18s_norm), 10)
+# Dims/resolution
+heart18s_filtered <- FindNeighbors(heart18s_filtered, dims = 1:16)
+heart18s_filtered <- FindClusters(heart18s_filtered, resolution = 0.15)
+heart18s_final <- RunUMAP(heart18s_filtered, dims = 1:16)
 
-all.genes <- rownames(heart18s_norm)
-heart18s_norm <- ScaleData(heart18s_norm, features = all.genes)
+saveRDS(heart18s_final, file = file.path(results_dir, "heart18s_final.rds"))
 
-heart18s_norm <- RunPCA(heart18s_norm, features = VariableFeatures(object = heart18s_norm))
-
-saveRDS(heart18s_norm, file.path(rds_dir, "heart18s_norm_pca.rds"))
-
-# -------------------------------#
-# 3) Neighbors + Clusters + UMAP
-# -------------------------------#
-
-heart18s_nn <- FindNeighbors(heart18s_norm, dims = 1:16)
-heart18s_nn <- FindClusters(heart18s_nn, resolution = 0.15)
-heart18s_final <- RunUMAP(heart18s_nn, dims = 1:16)
-
-saveRDS(heart18s_final, file.path(rds_dir, "heart18s_final_umap.rds"))
-
-# UMAP: all clusters (named)
+# Cluster naming + UMAP plots
 heart18s_final_clustersnamed <- heart18s_final
+
 new_cluster_names <- c(
   "Mixed Cell Types",
   "Pharyngeal Arch",
@@ -99,59 +83,51 @@ names(new_cluster_names) <- levels(heart18s_final_clustersnamed)
 heart18s_final_clustersnamed <- RenameIdents(heart18s_final_clustersnamed, new_cluster_names)
 
 p_umap_all <- DimPlot(heart18s_final_clustersnamed, reduction = "umap", pt.size = 0.5)
+
 ggsave(
-  filename = file.path(fig_dir, "18ss_umap_all_clusters_named.png"),
+  filename = file.path(figures_dir, "18ss_umap_all_clusters.png"),
   plot = p_umap_all,
   width = 7, height = 5, dpi = 300
 )
 
-# UMAP: highlight cardiac cluster in green, others grey
-# (matches your original colors vector ordering)
-p_umap_heart <- DimPlot(
+# Cardiac cluster highlight
+p_umap_cardiac <- DimPlot(
   heart18s_final,
   reduction = "umap",
   cols = c(
     "darkgrey", "darkgrey", "#0a9f0a", "darkgrey", "darkgrey",
-    "darkgrey", "darkgrey", "darkgrey", "darkgrey", "darkgrey"
-  )
+    "darkgrey", "darkgrey", "darkgrey", "darkgrey", "darkgrey")
 ) + NoLegend()
 
 ggsave(
-  filename = file.path(fig_dir, "18ss_umap_cardiac_highlight.png"),
-  plot = p_umap_heart,
+  filename = file.path(figures_dir, "18ss_umap_cardiac_highlight.png"),
+  plot = p_umap_cardiac,
   width = 7, height = 5, dpi = 300
 )
 
-# -------------------------------#
-# 4) Cluster markers + heatmap
-# -------------------------------#
-
+# Cluster markers + heatmap
 heart18s_final.markers <- FindAllMarkers(heart18s_final, only.pos = TRUE)
-
 write.csv(
   heart18s_final.markers,
-  file = file.path(tbl_dir, "Clustermarkers_heart18ss.csv"),
+  file = file.path(results_dir, "cluster_markers_heart18ss.csv"),
   row.names = TRUE
 )
 
-top10_markers <- heart18s_final.markers %>%
-  dplyr::group_by(cluster) %>%
-  dplyr::top_n(n = 10, wt = avg_log2FC)
+top10 <- heart18s_final.markers %>%
+  group_by(cluster) %>%
+  top_n(n = 10, wt = avg_log2FC)
 
-p_heat <- DoHeatmap(heart18s_final, features = top10_markers$gene) +
+p_heatmap <- DoHeatmap(heart18s_final, features = top10$gene) +
   NoLegend() +
   theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
 
 ggsave(
-  filename = file.path(fig_dir, "18ss_heatmap_top10_markers_per_cluster.png"),
-  plot = p_heat,
+  filename = file.path(figures_dir, "18ss_heatmap_top10_markers_per_cluster.png"),
+  plot = p_heatmap,
   width = 10, height = 7, dpi = 300
 )
 
-# -------------------------------#
-# 5) Canonical cardiac marker violins
-# -------------------------------#
-
+# Violin plots: canonical cardiac markers
 heart18s_final_reordered <- SetIdent(
   heart18s_final,
   value = factor(Idents(heart18s_final), levels = c("2", "0", "1", "3", "4", "5", "6", "7", "8", "9"))
@@ -190,17 +166,13 @@ for (g in marker_genes) {
     xlab("Cluster")
 
   ggsave(
-    filename = file.path(fig_dir, paste0("18ss_vln_", g, ".png")),
+    filename = file.path(figures_dir, paste0("18ss_vln_", g, ".png")),
     plot = p_vln,
     width = 8, height = 4, dpi = 300
   )
 }
 
-# -------------------------------#
-# 6) Assign left/right within cardiac cluster + LR DE
-# -------------------------------#
-
-# Cardiac cluster is "2" in 18 ss (per your original)
+# Left/Right assignment within cardiomyocytes
 heart18s_final_cluster2only <- subset(heart18s_final, idents = c("2"))
 
 # Optional expression summaries (parity with original)
@@ -208,9 +180,8 @@ summary(FetchData(object = heart18s_final_cluster2only, vars = "pitx2"))
 summary(FetchData(object = heart18s_final_cluster2only, vars = "lft2"))
 summary(FetchData(object = heart18s_final_cluster2only, vars = "lft1"))
 summary(FetchData(object = heart18s_final_cluster2only, vars = "ndr2"))
-
-# Thresholds from your original mean-expression notes
 # Mean expression: lft1 = 0.3455, lft2 = 0.9976, ndr2 = 0.2029, pitx2 = 0.3872
+
 left_pos <- WhichCells(
   heart18s_final_cluster2only,
   expression = pitx2 > 0.3872 | lft2 > 0.9976 | lft1 > 0.3455 | ndr2 > 0.2029

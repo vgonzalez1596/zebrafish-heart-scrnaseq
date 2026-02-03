@@ -249,7 +249,7 @@ pseudotime_values <- slingPseudotime(sce_slingshot, na = FALSE)
 pt <- pseudotime_values[, 1]
 pt_col <- viridis(100)[as.numeric(cut(pt, breaks = 100))]
 png(
-  filename = file.path(out_dir, "slingshot_pseudotime_colored_baseR.png"),
+  filename = file.path(out_dir, "slingshot_pseudotime_colored.png"),
   width = 1800, height = 1400, res = 250
 )
 par(mar = c(5, 4, 4, 6), bty = "n")

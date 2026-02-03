@@ -44,15 +44,15 @@ Seurat, Slingshot, AUCell, tidyverse, ggplot2, and additional related R-based si
 ---
 
 ## Repository Structure
-scripts/ analysis scripts and notebooks
+`scripts/` analysis scripts and notebooks
 
-results/ processed outputs and intermediate objects
+`results/` processed outputs and intermediate objects
 
-figures/ generated figures and visualizations
+`figures/` generated figures and visualizations
 
-data/ data organization notes
+`data/` data organization notes
 
-environment/ package and session information for reproducibility
+`environment/` package and session information for reproducibility
 
 ---
 

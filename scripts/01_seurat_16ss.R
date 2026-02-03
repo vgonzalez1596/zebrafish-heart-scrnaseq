@@ -6,7 +6,7 @@
 #   - AUCell scoring for pathway activity across clusters
 
 # Setup
-source(here("scripts", "00_setup.R"))  # adjust path if your scripts folder differs
+source(here("scripts", "00_setup.R"))
 set.seed(123)
 
 # Output folders
@@ -25,7 +25,7 @@ heart16s <- CreateSeuratObject(
 
 heart16s[["percent.mt"]] <- PercentageFeatureSet(heart16s, pattern = "^mt-")
 
-# (Optional) QC summary (saved to console)
+# QC summary
 qc_summary <- list(
   nFeature_RNA_median = median(heart16s@meta.data$nFeature_RNA),
   nFeature_RNA_mad    = mad(heart16s@meta.data$nFeature_RNA, center = median(heart16s@meta.data$nFeature_RNA),
@@ -36,7 +36,7 @@ qc_summary <- list(
 )
 print(qc_summary)
 
-# Your thresholds (kept identical)
+# QC thresholds
 heart16s_filtered <- subset(
   heart16s,
   subset = nFeature_RNA > 200 &
@@ -57,14 +57,14 @@ heart16s_filtered <- ScaleData(heart16s_filtered, features = all.genes)
 
 heart16s_filtered <- RunPCA(heart16s_filtered, features = VariableFeatures(object = heart16s_filtered))
 
-# Your dims/resolution (kept identical)
+# Dims/resolution
 heart16s_filtered <- FindNeighbors(heart16s_filtered, dims = 1:13)
 heart16s_filtered <- FindClusters(heart16s_filtered, resolution = 0.12)
 heart16s_final <- RunUMAP(heart16s_filtered, dims = 1:13)
 
 saveRDS(heart16s_final, file = file.path(results_dir, "heart16s_final.rds"))
 
-# ---- Cluster naming + UMAP plots ---------------------------------------------
+# Cluster naming + UMAP plots
 heart16s_final_clustersnamed <- heart16s_final
 
 new_cluster_names <- c(
@@ -82,7 +82,7 @@ ggsave(
   width = 7, height = 5, dpi = 300
 )
 
-# Cardiac cluster highlight (kept as your original intent; depends on cluster order)
+# Cardiac cluster highlight
 p_umap_cardiac <- DimPlot(
   heart16s_final,
   reduction = "umap",
@@ -95,7 +95,7 @@ ggsave(
   width = 7, height = 5, dpi = 300
 )
 
-# ---- Cluster markers + heatmap -----------------------------------------------
+# Cluster markers + heatmap
 heart16s_final.markers <- FindAllMarkers(heart16s_final, only.pos = TRUE)
 write.csv(
   heart16s_final.markers,
@@ -117,7 +117,7 @@ ggsave(
   width = 10, height = 7, dpi = 300
 )
 
-# ---- Violin plots: canonical cardiac markers ---------------------------------
+# Violin plots: canonical cardiac markers
 heart16s_final_reordered <- SetIdent(
   heart16s_final,
   value = factor(Idents(heart16s_final), levels = c("3", "0", "1", "2", "4", "5", "6"))
@@ -158,10 +158,10 @@ for (g in vln_features) {
   )
 }
 
-# ---- Left/Right assignment within cardiomyocytes ------------------------------
+# Left/Right assignment within cardiomyocytes
 heart16s_final_cluster3only <- subset(heart16s_final, idents = c("3"))
 
-# Your means (kept identical)
+# Left genes mean expression
 pitx2_mean <- 0.1444
 lft2_mean  <- 0.2881
 lft1_mean  <- 0.07302
@@ -210,7 +210,7 @@ write.csv(
   file = file.path(results_dir, "LR_DEanalysis_heart16ss_filtered.csv")
 )
 
-# ---- AUCell: pathway activity across clusters --------------------------------
+# AUCell: pathway activity across clusters
 exprMatrix <- GetAssayData(heart16s_final, slot = "counts")
 
 geneSets <- list(
@@ -258,4 +258,3 @@ ggsave(
 saveRDS(heart16s_final, file = file.path(results_dir, "heart16s_final_with_AUCell.rds"))
 
 message("01_seurat_16ss.R complete. Outputs saved to results/16ss and figures/16ss.")
-
